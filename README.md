@@ -1,0 +1,1 @@
+# cinematic-thumbnail-generator
