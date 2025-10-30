@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cinematic Thumbnail Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+        }
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .thumbnail-box {
+            background-color: #161b22;
+            border: 2px solid #30363d;
+            aspect-ratio: 16 / 9;
+            position: relative;
+        }
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #58a6ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .download-btn {
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .thumbnail-box:hover .download-btn {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="text-center py-6 border-b border-gray-700 mb-6">
+        <h1 class="text-4xl font-extrabold text-blue-400">Cinematic Thumbnail Generator</h1>
+        <p class="text-gray-400 mt-2">Generate 4 high-impact 16:9 thumbnails from structured JSON or simple text prompts.</p>
+    </header>
+
+    <main class="space-y-8">
+        
+        <!-- Input Panel -->
+        <div class="bg-[#161b22] p-6 rounded-xl shadow-lg border border-[#30363d]">
+            <h2 class="text-2xl font-semibold mb-4 text-white">1. Enter Prompt (JSON or Text)</h2>
+            <p class="text-xs text-gray-500 mb-2">Use the detailed JSON for split-screen layouts, or just type a descriptive sentence for a fast result.</p>
+            <textarea id="jsonPrompt" rows="12" class="w-full p-4 rounded-lg bg-[#0d1117] border border-gray-600 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none" placeholder="Paste your structured JSON or type a simple prompt here...">
+{
+  "title": "THE KAFALA SYSTEM EXPOSED",
+  "description": "Cinematic thumbnail showing the cruelty and vast disparity of the Kafala system.",
+  "layout": "16:9 YouTube Thumbnail",
+  "style": "dark, emotional, high contrast, realistic, volumetric lighting",
+  "elements": [
+    {
+      "type": "background",
+      "image_prompt": "Dusty Middle Eastern labor camp at sunset, sand and smoke in air, cinematic lighting."
+    },
+    {
+      "type": "photo_layer",
+      "id": "A",
+      "role": "Worker",
+      "image_prompt": "South Asian man in torn clothes, chained hands, tears, exhausted, emotional, cinematic light.",
+      "position": "left"
+    },
+    {
+      "type": "photo_layer",
+      "id": "B",
+      "role": "Owner Shaik",
+      "image_prompt": "Rich Arab man in pristine white kandura, reflective sunglasses, cold evil grin, folded arms, shadow aura, in a luxury office.",
+      "position": "right"
+    },
+    {
+      "type": "text_overlay",
+      "content": "THE KAFALA SYSTEM EXPOSED",
+      "font": "bold cinematic",
+      "color": "yellow with red glow",
+      "placement": "bottom center"
+    }
+  ]
+}
+</textarea>
+            <button onclick="generateThumbnails()" id="generateButton" class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md shadow-blue-500/50">
+                Generate 4 Thumbnails
+            </button>
+            <p id="messageBox" class="mt-4 text-sm text-red-400 min-h-[1.5rem]"></p>
+        </div>
+
+        <!-- Output Panel -->
+        <div class="bg-[#161b22] p-6 rounded-xl shadow-lg border border-[#30363d]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-semibold text-white">2. Generated Results (16:9)</h2>
+                <button onclick="downloadAll()" id="downloadAllBtn" class="hidden bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition duration-200">
+                    Download All 4
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Thumbnail 1 -->
+                <div class="space-y-2">
+                    <div id="outputArea1" class="thumbnail-box w-full flex items-center justify-center bg-gray-900 rounded-lg overflow-hidden">
+                        <img id="thumbnailImage1" src="" alt="Generated Thumbnail 1" class="hidden w-full h-full object-cover">
+                        <div id="placeholderText1" class="text-gray-500 text-sm p-4 text-center">Thumbnail 1</div>
+                        <div id="loadingSpinner1" class="hidden loading-spinner"></div>
+                        <button onclick="downloadImage(1)" class="download-btn hidden absolute top-2 right-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg">
+                            Download
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Thumbnail 2 -->
+                <div class="space-y-2">
+                    <div id="outputArea2" class="thumbnail-box w-full flex items-center justify-center bg-gray-900 rounded-lg overflow-hidden">
+                        <img id="thumbnailImage2" src="" alt="Generated Thumbnail 2" class="hidden w-full h-full object-cover">
+                        <div id="placeholderText2" class="text-gray-500 text-sm p-4 text-center">Thumbnail 2</div>
+                        <div id="loadingSpinner2" class="hidden loading-spinner"></div>
+                        <button onclick="downloadImage(2)" class="download-btn hidden absolute top-2 right-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg">
+                            Download
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Thumbnail 3 -->
+                <div class="space-y-2">
+                    <div id="outputArea3" class="thumbnail-box w-full flex items-center justify-center bg-gray-900 rounded-lg overflow-hidden">
+                        <img id="thumbnailImage3" src="" alt="Generated Thumbnail 3" class="hidden w-full h-full object-cover">
+                        <div id="placeholderText3" class="text-gray-500 text-sm p-4 text-center">Thumbnail 3</div>
+                        <div id="loadingSpinner3" class="hidden loading-spinner"></div>
+                        <button onclick="downloadImage(3)" class="download-btn hidden absolute top-2 right-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg">
+                            Download
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Thumbnail 4 -->
+                <div class="space-y-2">
+                    <div id="outputArea4" class="thumbnail-box w-full flex items-center justify-center bg-gray-900 rounded-lg overflow-hidden">
+                        <img id="thumbnailImage4" src="" alt="Generated Thumbnail 4" class="hidden w-full h-full object-cover">
+                        <div id="placeholderText4" class="text-gray-500 text-sm p-4 text-center">Thumbnail 4</div>
+                        <div id="loadingSpinner4" class="hidden loading-spinner"></div>
+                        <button onclick="downloadImage(4)" class="download-btn hidden absolute top-2 right-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg">
+                            Download
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <p class="mt-4 text-xs text-gray-500 text-center">Generation can take up to 30 seconds for all 4 images.</p>
+        </div>
+    </main>
+</div>
+
+<script type="module">
+    // --- FIREBASE SETUP (Mandatory for API context) ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    
+    // Global variables provided by the environment
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    let app;
+    let auth;
+    let isAuthReady = false;
+
+    // Initialize and Authenticate
+    async function initFirebase() {
+        if (Object.keys(firebaseConfig).length === 0) {
+            console.error("Firebase config is missing.");
+            return;
+        }
+        
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+
+            if (initialAuthToken) {
+                await signInWithCustomToken(auth, initialAuthToken);
+            } else {
+                await signInAnonymously(auth);
+            }
+            isAuthReady = true;
+            console.log("Firebase initialized and user authenticated.");
+        } catch (error) {
+            console.error("Firebase authentication failed:", error);
+            isAuthReady = true; 
+        }
+    }
+
+    // --- APPLICATION LOGIC ---
+
+    const API_MODEL = 'imagen-3.0-generate-002';
+    const API_URL_BASE = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:predict?key=`;
+    const MAX_RETRIES = 5;
+
+    const jsonPromptEl = document.getElementById('jsonPrompt');
+    const generateButton = document.getElementById('generateButton');
+    const messageBox = document.getElementById('messageBox');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+
+    let generatedImages = [];
+
+    // Utility for exponential backoff retry
+    async function fetchWithRetry(url, options, retries = 0) {
+        try {
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            if (retries < MAX_RETRIES) {
+                const delay = Math.pow(2, retries) * 1000;
+                console.warn(`API call failed. Retrying in ${delay / 1000}s... (Attempt ${retries + 1}/${MAX_RETRIES})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return fetchWithRetry(url, options, retries + 1);
+            } else {
+                console.error("Maximum retries reached. Final error:", error);
+                throw new Error("Failed to connect to the image generation service after multiple retries.");
+            }
+        }
+    }
+
+    // Function to safely parse JSON or return the raw string
+    function parseInput(input) {
+        const trimmedInput = input.trim();
+        if (trimmedInput.length === 0) {
+            return { mode: "EMPTY" };
+        }
+        
+        try {
+            const parsed = JSON.parse(trimmedInput);
+            if (typeof parsed === 'object' && parsed !== null) {
+                return { mode: "JSON", config: parsed };
+            }
+        } catch (e) {
+            console.warn("JSON parsing failed, switching to simple text mode.");
+        }
+        
+        return { mode: "TEXT", text: trimmedInput };
+    }
+
+    // Build prompt from input
+    function buildPrompt(input) {
+        let fullPrompt = "";
+        
+        if (input.mode === "EMPTY") {
+            throw new Error("Input is empty. Please enter a JSON configuration or a text prompt.");
+
+        } else if (input.mode === "TEXT") {
+            fullPrompt = `Cinematic digital art YouTube thumbnail, 16:9 aspect ratio. ${input.text}. 
+                          High contrast, volumetric lighting, ultra-detailed, dramatic film grain.
+                          STRICT TEXT RENDERING: Use only the exact English words provided for any text overlay. DO NOT add any foreign language text.`;
+            
+        } else if (input.mode === "JSON") {
+            const config = input.config;
+            
+            if (!config.title && !config.description && (!config.elements || !config.elements.find(el => el.type === 'text_overlay')?.content)) {
+                throw new Error("JSON must contain at least a 'title', 'description', or a 'text_overlay' content field.");
+            }
+
+            let leftSide = config.left_side;
+            let rightSide = config.right_side;
+            
+            if (config.elements && Array.isArray(config.elements)) {
+                leftSide = config.elements.find(el => el.position === 'left' && el.type === 'photo_layer');
+                rightSide = config.elements.find(el => el.position === 'right' && el.type === 'photo_layer');
+            }
+            
+            fullPrompt += `${config.style || 'cinematic digital art'}, ${config.color_palette || 'high contrast, vibrant colors'}. 
+                           YouTube thumbnail, 16:9 aspect ratio.
+                           Description: ${config.description || config.title}.`;
+            
+            if (leftSide && rightSide) {
+                const leftPrompt = leftSide.image_prompt || (leftSide.role ? `${leftSide.role} subject` : 'subject');
+                const rightPrompt = rightSide.image_prompt || (rightSide.role ? `${rightSide.role} subject` : 'subject');
+                const backgroundPrompt = config.elements?.find(el => el.type === 'background')?.image_prompt || '';
+
+                fullPrompt += `
+                                SPLIT-SCREEN LAYOUT with background: ${backgroundPrompt}.
+                                LEFT SIDE: ${leftPrompt} (Role: ${leftSide.role || 'no role specified'}). 
+                                RIGHT SIDE: ${rightPrompt} (Role: ${rightSide.role || 'no role specified'}).`;
+            } else {
+                fullPrompt += `
+                                SINGLE IMAGE LAYOUT.
+                                Primary Subject: ${config.image_prompt || config.title}.`;
+            }
+
+            const textOverlayElement = config.elements?.find(el => el.type === 'text_overlay') || {};
+            const mainTitle = textOverlayElement.content || config.title || '';
+            const subtitle = config.subtitle || ''; 
+
+            fullPrompt += `
+                            OVERLAY TEXT: Main Title: '${mainTitle}'. Subtitle: '${subtitle}'. 
+                            Ensure the image is high-impact and detailed. 
+                            STRICT TEXT RENDERING: Use only the exact English words provided for the text overlay. DO NOT add any foreign language or misspelled text.`;
+        }
+
+        return fullPrompt;
+    }
+
+    // Generate single thumbnail
+    async function generateSingleThumbnail(index, fullPrompt, apiUrl) {
+        const thumbnailImage = document.getElementById(`thumbnailImage${index}`);
+        const placeholderText = document.getElementById(`placeholderText${index}`);
+        const loadingSpinner = document.getElementById(`loadingSpinner${index}`);
+        const downloadBtn = document.querySelector(`#outputArea${index} .download-btn`);
+
+        try {
+            // Show loading
+            thumbnailImage.classList.add('hidden');
+            placeholderText.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            downloadBtn.classList.add('hidden');
+
+            const payload = { 
+                instances: [{ prompt: fullPrompt }], 
+                parameters: { 
+                    "sampleCount": 1,
+                    "aspectRatio": "16:9" 
+                } 
+            };
+
+            const response = await fetchWithRetry(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const prediction = response?.predictions?.[0];
+            const base64Data = prediction?.bytesBase64Encoded;
+
+            if (!base64Data) {
+                throw new Error("Image generation failed. No image data returned.");
+            }
+
+            const imageUrl = `data:image/png;base64,${base64Data}`;
+            thumbnailImage.src = imageUrl;
+            thumbnailImage.classList.remove('hidden');
+            downloadBtn.classList.remove('hidden');
+            
+            generatedImages[index - 1] = { url: imageUrl, base64: base64Data };
+
+        } catch (error) {
+            console.error(`Generation Error for Thumbnail ${index}:`, error);
+            placeholderText.textContent = `Error: ${error.message}`;
+            placeholderText.classList.remove('hidden');
+        } finally {
+            loadingSpinner.classList.add('hidden');
+        }
+    }
+
+    // Main generation function
+    window.generateThumbnails = async () => {
+        if (!isAuthReady) {
+            messageBox.textContent = "Service is still initializing. Please wait a moment and try again.";
+            return;
+        }
+
+        const apiKey = ""; 
+        const apiUrl = API_URL_BASE + apiKey;
+        
+        // Reset state
+        generateButton.disabled = true;
+        generateButton.textContent = "Generating...";
+        messageBox.textContent = "Generating 4 thumbnails...";
+        downloadAllBtn.classList.add('hidden');
+        generatedImages = [];
+
+        try {
+            const input = parseInput(jsonPromptEl.value);
+            const fullPrompt = buildPrompt(input);
+            console.log("Generated Prompt:", fullPrompt);
+
+            // Generate all 4 thumbnails in parallel
+            const promises = [];
+            for (let i = 1; i <= 4; i++) {
+                promises.push(generateSingleThumbnail(i, fullPrompt, apiUrl));
+            }
+
+            await Promise.all(promises);
+            
+            messageBox.textContent = "All thumbnails generated successfully!";
+            messageBox.classList.remove('text-red-400');
+            messageBox.classList.add('text-green-400');
+            downloadAllBtn.classList.remove('hidden');
+
+        } catch (error) {
+            console.error("Generation Error:", error);
+            let displayError = error.message;
+            if (error.message.includes("unexpected character")) {
+                 displayError = "JSON Parse Error: Please ensure your input is perfectly valid JSON (check for missing commas, quotes, or accidental extra text outside the { } braces).";
+            }
+            messageBox.textContent = `Error: ${displayError}`;
+            messageBox.classList.remove('text-green-400');
+            messageBox.classList.add('text-red-400');
+        } finally {
+            generateButton.disabled = false;
+            generateButton.textContent = "Generate 4 Thumbnails";
+        }
+    };
+
+    // Download single image
+    window.downloadImage = (index) => {
+        const img = generatedImages[index - 1];
+        if (!img) return;
+
+        const link = document.createElement('a');
+        link.href = img.url;
+        link.download = `thumbnail-${index}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    // Download all images
+    window.downloadAll = () => {
+        generatedImages.forEach((img, index) => {
+            if (img) {
+                setTimeout(() => {
+                    const link = document.createElement('a');
+                    link.href = img.url;
+                    link.download = `thumbnail-${index + 1}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }, index * 200); // Stagger downloads slightly
+            }
+        });
+    };
+
+    // Initialize Firebase on load
+    window.onload = initFirebase;
+</script>
+
+</body>
+</html>
