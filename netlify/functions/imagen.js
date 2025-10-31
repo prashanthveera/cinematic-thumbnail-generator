@@ -1,4 +1,5 @@
 // netlify/functions/imagen.js
+
 export async function handler(event) {
   try {
     if (event.httpMethod !== "POST") {
@@ -18,9 +19,15 @@ export async function handler(event) {
     const url =
       "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:generateImages";
 
+    // ✅ Correct request format
     const payload = {
-      prompt,
-      config: {
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }],
+        },
+      ],
+      generationConfig: {
         numberOfImages: 4,
         aspectRatio: "16:9",
       },
