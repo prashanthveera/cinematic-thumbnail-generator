@@ -1,5 +1,4 @@
 // netlify/functions/imagen.js
-
 export async function handler(event) {
   try {
     if (event.httpMethod !== "POST") {
@@ -19,7 +18,6 @@ export async function handler(event) {
     const url =
       "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:generateImages";
 
-    // ✅ Correct request format
     const payload = {
       contents: [
         {
@@ -54,7 +52,7 @@ export async function handler(event) {
 
     const images =
       (data.generatedImages || [])
-        .map(g => g?.image?.imageBytes)
+        .map((img) => img?.image?.imageBytes)
         .filter(Boolean);
 
     return {
@@ -62,8 +60,11 @@ export async function handler(event) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ images }),
     };
-
   } catch (e) {
-    return { statusCode: 500, body: e.message || "Server error" };
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: e.message }),
+    };
   }
 }
