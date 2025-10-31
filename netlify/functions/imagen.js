@@ -1,22 +1,38 @@
 // netlify/functions/imagen.js
+
 export async function handler(event) {
   try {
     if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: "Method Not Allowed" };
+      return {
+        statusCode: 405,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Method Not Allowed" }),
+      };
     }
 
     const { prompt } = JSON.parse(event.body || "{}");
+
     if (!prompt) {
-      return { statusCode: 400, body: "Missing prompt" };
+      return {
+        statusCode: 400,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Missing prompt" }),
+      };
     }
 
     const API_KEY = process.env.GOOGLE_API_KEY;
+
     if (!API_KEY) {
-      return { statusCode: 500, body: "Missing GOOGLE_API_KEY" };
+      return {
+        statusCode: 500,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Missing GOOGLE_API_KEY" }),
+      };
     }
 
     const url =
-      "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:generateImages";
+      "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:generateImages?key=" +
+      API_KEY;
 
     const payload = {
       contents: [
@@ -31,7 +47,7 @@ export async function handler(event) {
       },
     };
 
-    const resp = await fetch(url + `?key=${API_KEY}`, {
+    const resp = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -39,12 +55,20 @@ export async function handler(event) {
       body: JSON.stringify(payload),
     });
 
-    const data = await resp.json();
+    let dataText = await resp.text(); // read raw ALWAYS
+
+    let data;
+    try {
+      data = JSON.parse(dataText);
+    } catch {
+      data = { raw: dataText };
+    }
 
     if (!resp.ok) {
       return {
-        statusCode: resp.status,
-        body: JSON.stringify(data),
+        statusCode: 500,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Imagen error", details: data }),
       };
     }
 
@@ -55,9 +79,14 @@ export async function handler(event) {
 
     return {
       statusCode: 200,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ images }),
     };
-  } catch (e) {
-    return { statusCode: 500, body: e.toString() };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Server crash", details: err.toString() }),
+    };
   }
 }
