@@ -5,80 +5,54 @@ export async function handler(event) {
     }
 
     const { prompt } = JSON.parse(event.body || "{}");
-
     if (!prompt) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Missing prompt" })
-      };
+      return { statusCode: 400, body: "Missing prompt" };
     }
 
     const API_KEY = process.env.GOOGLE_API_KEY;
     if (!API_KEY) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Missing GOOGLE_API_KEY" })
-      };
+      return { statusCode: 500, body: "Missing GOOGLE_API_KEY" };
     }
 
-    const url =
-      "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:generateImages";
+    const PROJECT_ID = "gen-lang-client-0398562154";
+
+    const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/publishers/google/models/imagen-4.0-generate:predict`;
 
     const payload = {
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }],
-        },
-      ],
-      generationConfig: {
-        numberOfImages: 1,
-        aspectRatio: "16:9",
-      },
+      instances: [{ prompt }],
+      parameters: { sampleCount: 1 }
     };
 
-    const resp = await fetch(`${url}?key=${API_KEY}`, {
+    const resp = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${API_KEY}`
       },
       body: JSON.stringify(payload),
     });
 
-    const text = await resp.text();   // ✅ Capture RAW
-    console.log("RAW RESPONSE:", text);
-
-    let data = {};
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Invalid JSON returned", raw: text }),
-      };
-    }
+    const data = await resp.json();
+    console.log("Imagen response:", JSON.stringify(data).slice(0,200));
 
     if (!resp.ok) {
       return {
         statusCode: resp.status,
-        body: JSON.stringify({ error: data }),
+        body: JSON.stringify(data)
       };
     }
 
-    const images =
-      (data.generatedImages || [])
-        .map(g => g?.image?.imageBytes)
-        .filter(Boolean);
+    const images = data?.predictions?.map(p => p.bytesBase64) || [];
 
     return {
       statusCode: 200,
       body: JSON.stringify({ images }),
     };
 
-  } catch (err) {
+  } catch (e) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
+      body: JSON.stringify({ error: e.message || "Server error" })
     };
   }
 }
