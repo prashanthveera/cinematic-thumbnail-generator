@@ -54,7 +54,7 @@
       Cinematic Thumbnail Generator
     </h1>
     <p class="text-gray-400 mt-2">
-      Generate 4 cinematic thumbnails using a text prompt.
+      Create 4 cinematic thumbnails using AI
     </p>
   </header>
 
@@ -68,9 +68,7 @@
         id="promptInput"
         rows="5"
         class="w-full p-4 rounded-lg bg-[#0d1117] border border-gray-600 text-sm"
-        placeholder="Describe your thumbnail… example:
-Split screen: Left — poor worker street food vendor, rainy night.
-Right — woman entrepreneur in skyscraper, golden sunlight. Cinematic, realistic, volumetric lighting."
+        placeholder="Describe your thumbnail…"
       ></textarea>
 
       <button
@@ -90,55 +88,36 @@ Right — woman entrepreneur in skyscraper, golden sunlight. Cinematic, realisti
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         <!-- dynamic thumbnails -->
-        <div class="space-y-2" >
-          <div id="area1" class="thumbnail-box flex items-center justify-center rounded-lg overflow-hidden">
-            <img id="img1" class="hidden w-full h-full object-cover" />
-            <div id="placeholder1" class="text-gray-500">Thumbnail 1</div>
-            <div id="spinner1" class="hidden loading-spinner"></div>
-            <button onclick="downloadImage(1)" class="download-btn hidden absolute top-2 right-2 bg-blue-600 text-white py-2 px-4 rounded-lg">Download</button>
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <div id="area2" class="thumbnail-box flex items-center justify-center rounded-lg overflow-hidden">
-            <img id="img2" class="hidden w-full h-full object-cover" />
-            <div id="placeholder2" class="text-gray-500">Thumbnail 2</div>
-            <div id="spinner2" class="hidden loading-spinner"></div>
-            <button onclick="downloadImage(2)" class="download-btn hidden absolute top-2 right-2 bg-blue-600 text-white py-2 px-4 rounded-lg">Download</button>
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <div id="area3" class="thumbnail-box flex items-center justify-center rounded-lg overflow-hidden">
-            <img id="img3" class="hidden w-full h-full object-cover" />
-            <div id="placeholder3" class="text-gray-500">Thumbnail 3</div>
-            <div id="spinner3" class="hidden loading-spinner"></div>
-            <button onclick="downloadImage(3)" class="download-btn hidden absolute top-2 right-2 bg-blue-600 text-white py-2 px-4 rounded-lg">Download</button>
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <div id="area4" class="thumbnail-box flex items-center justify-center rounded-lg overflow-hidden">
-            <img id="img4" class="hidden w-full h-full object-cover" />
-            <div id="placeholder4" class="text-gray-500">Thumbnail 4</div>
-            <div id="spinner4" class="hidden loading-spinner"></div>
-            <button onclick="downloadImage(4)" class="download-btn hidden absolute top-2 right-2 bg-blue-600 text-white py-2 px-4 rounded-lg">Download</button>
-          </div>
-        </div>
+        <script>
+          document.write(
+            Array.from({ length: 4 })
+              .map(
+                (_, i) => `
+                  <div class="space-y-2">
+                    <div id="area${i+1}" class="thumbnail-box flex items-center justify-center rounded-lg overflow-hidden">
+                      <img id="img${i+1}" class="hidden w-full h-full object-cover" />
+                      <div id="placeholder${i+1}" class="text-gray-500">Thumbnail ${i+1}</div>
+                      <div id="spinner${i+1}" class="hidden loading-spinner"></div>
+                      <button onclick="downloadImage(${i+1})" class="download-btn hidden absolute top-2 right-2 bg-blue-600 text-white py-2 px-4 rounded-lg">Download</button>
+                    </div>
+                  </div>
+                `
+              )
+              .join("")
+          );
+        </script>
 
       </div>
     </div>
   </main>
 </div>
 
-
 <script>
-/* ✅✅ ENTER YOUR GOOGLE API KEY HERE */
+/* ✅✅ ENTER YOUR GOOGLE API KEY HERE  */
 const API_KEY = "AIzaSyB2xmCLG8rM-TC0lfyqJ0JaV4iAQMwWisY";
 
-/* Imagen model */
-const API_MODEL = "imagen-3.0-generate-002";
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:predict?key=${API_KEY}`;
+/* ✅ Imagen 4 endpoint */
+const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:generateImages";
 
 let generatedImages = [];
 
@@ -146,7 +125,8 @@ let generatedImages = [];
 async function generateThumbnails() {
   const prompt = document.getElementById("promptInput").value.trim();
   const msg = document.getElementById("messageBox");
-  msg.textContent = "Generating… (this may take 10–25 sec)";
+
+  msg.textContent = "Generating… (This may take 10–25 seconds)";
   msg.className = "text-yellow-400";
 
   if (!prompt) {
@@ -181,22 +161,25 @@ async function generateOne(id, prompt) {
 
   try {
     const payload = {
-      instances: [{ prompt }],
-      parameters: {
-        sampleCount: 1,
-        aspectRatio: "16:9",
-      },
+      prompt,
+      config: {
+        numberOfImages: 1
+      }
     };
 
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": API_KEY,
+      },
       body: JSON.stringify(payload),
     });
 
     const data = await res.json();
-    const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
-    if (!b64) throw new Error("No image");
+    const b64 = data?.generatedImages?.[0]?.image?.imageBytes;
+
+    if (!b64) throw new Error("No image returned");
 
     const url = `data:image/png;base64,${b64}`;
     img.src = url;
@@ -205,6 +188,7 @@ async function generateOne(id, prompt) {
 
     generatedImages[id - 1] = url;
   } catch (e) {
+    console.log(e);
     placeholder.textContent = "Error";
     placeholder.classList.remove("hidden");
   }
