@@ -1,23 +1,26 @@
 import { GoogleAuth } from "google-auth-library";
 
-export async function handler(event) {
+export default async function handler(req, res) {
   try {
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: "Method Not Allowed" };
-    }
+    const body = await req.json();
+    const { prompt } = body;
 
-    const { prompt } = JSON.parse(event.body || "{}");
     if (!prompt) {
-      return { statusCode: 400, body: "Missing prompt" };
+      return new Response(JSON.stringify({ error: "Missing prompt" }), { status: 400 });
     }
 
-    // ✅ LOAD CREDENTIAL JSON
-    const credJSON = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
-    if (!credJSON) {
-      return { statusCode: 500, body: "Missing credentials env variable" };
+    const projectId = process.env.GOOGLE_PROJECT_ID;
+    const credentialsJSON = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+
+    if (!projectId) {
+      return new Response(JSON.stringify({ error: "Missing GOOGLE_PROJECT_ID" }), { status: 500 });
     }
 
-    const credentials = JSON.parse(credJSON);
+    if (!credentialsJSON) {
+      return new Response(JSON.stringify({ error: "Missing GOOGLE_APPLICATION_CREDENTIALS_JSON" }), { status: 500 });
+    }
+
+    const credentials = JSON.parse(credentialsJSON);
 
     const auth = new GoogleAuth({
       credentials,
@@ -26,12 +29,9 @@ export async function handler(event) {
 
     const client = await auth.getClient();
 
-    const url =
-      "https://us-central1-aiplatform.googleapis.com/v1/projects/" +
-      credentials.project_id +
-      "/locations/us-central1/publishers/google/models/imagen-3.0:predict";
+    const endpoint = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/imagen-3.0:predict`;
 
-    const payload = {
+    const requestBody = {
       instances: [
         {
           prompt,
@@ -39,24 +39,28 @@ export async function handler(event) {
       ],
     };
 
-    const response = await client.request({
-      url,
+    const result = await client.request({
+      url: endpoint,
       method: "POST",
-      data: payload,
+      data: requestBody,
     });
 
-    const images =
-      response.data?.predictions?.map((p) => p.bytesBase64) || [];
+    const base64 = result.data?.predictions?.[0]?.bytesBase64;
 
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ images }),
-    };
-  } catch (err) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
-    };
+    if (!base64) {
+      return new Response(JSON.stringify({ error: "No image returned" }), { status: 500 });
+    }
+
+    return new Response(
+      JSON.stringify({ image: base64 }),
+      {
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error.message || "Unknown error" }),
+      { status: 500 }
+    );
   }
 }
