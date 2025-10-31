@@ -1,4 +1,3 @@
-// netlify/functions/imagen.js
 export async function handler(event) {
   try {
     if (event.httpMethod !== "POST") {
@@ -6,13 +5,20 @@ export async function handler(event) {
     }
 
     const { prompt } = JSON.parse(event.body || "{}");
+
     if (!prompt) {
-      return { statusCode: 400, body: "Missing prompt" };
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing prompt" })
+      };
     }
 
     const API_KEY = process.env.GOOGLE_API_KEY;
     if (!API_KEY) {
-      return { statusCode: 500, body: "Server missing GOOGLE_API_KEY" };
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Missing GOOGLE_API_KEY" })
+      };
     }
 
     const url =
@@ -31,19 +37,28 @@ export async function handler(event) {
       },
     };
 
-    const resp = await fetch(url, {
+    const resp = await fetch(`${url}?key=${API_KEY}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-goog-api-key": API_KEY,
       },
       body: JSON.stringify(payload),
     });
 
-    const data = await resp.json();
+    const text = await resp.text();   // ✅ Capture RAW
+    console.log("RAW RESPONSE:", text);
+
+    let data = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Invalid JSON returned", raw: text }),
+      };
+    }
 
     if (!resp.ok) {
-      console.error("GOOGLE ERROR:", data);
       return {
         statusCode: resp.status,
         body: JSON.stringify({ error: data }),
@@ -52,15 +67,18 @@ export async function handler(event) {
 
     const images =
       (data.generatedImages || [])
-        .map((g) => g?.image?.imageBytes)
+        .map(g => g?.image?.imageBytes)
         .filter(Boolean);
 
     return {
       statusCode: 200,
       body: JSON.stringify({ images }),
     };
-  } catch (e) {
-    console.error("SERVER ERROR:", e);
-    return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
+
+  } catch (err) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message }),
+    };
   }
 }
