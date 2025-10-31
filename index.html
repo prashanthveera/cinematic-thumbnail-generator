@@ -113,11 +113,8 @@
 </div>
 
 <script>
-/* ✅✅ ENTER YOUR GOOGLE API KEY HERE  */
-const API_KEY = "AIzaSyB2xmCLG8rM-TC0lfyqJ0JaV4iAQMwWisY";
-
-/* ✅ Imagen 4 endpoint */
-const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:generateImages";
+/* ✅ Backend function endpoint */
+const FUNCTION_URL = "/.netlify/functions/imagen";
 
 let generatedImages = [];
 
@@ -160,28 +157,19 @@ async function generateOne(id, prompt) {
   downloadBtn.classList.add("hidden");
 
   try {
-    const payload = {
-      prompt,
-      config: {
-        numberOfImages: 1
-      }
-    };
-
-    const res = await fetch(API_URL, {
+    const res = await fetch(FUNCTION_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": API_KEY,
-      },
-      body: JSON.stringify(payload),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
     });
 
     const data = await res.json();
-    const b64 = data?.generatedImages?.[0]?.image?.imageBytes;
 
-    if (!b64) throw new Error("No image returned");
+    if (!data?.images?.length) throw new Error("No image returned");
 
+    const b64 = data.images[0];
     const url = `data:image/png;base64,${b64}`;
+
     img.src = url;
     img.classList.remove("hidden");
     downloadBtn.classList.remove("hidden");
@@ -207,5 +195,7 @@ function downloadImage(id) {
 }
 </script>
 
+
 </body>
 </html>
+
