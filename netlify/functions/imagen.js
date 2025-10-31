@@ -1,27 +1,26 @@
+// netlify/functions/imagen.js
 import { GoogleAuth } from "google-auth-library";
 
 export default async function handler(req, res) {
   try {
-    const body = await req.json();
-    const { prompt } = body;
+    const body = req.body ? JSON.parse(req.body) : {};
+    const prompt = body.prompt;
 
     if (!prompt) {
-      return new Response(JSON.stringify({ error: "Missing prompt" }), { status: 400 });
+      return res.status(400).json({ error: "Prompt is required" });
     }
 
+    // ✅ ENV
     const projectId = process.env.GOOGLE_PROJECT_ID;
-    const credentialsJSON = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+    const saJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
 
-    if (!projectId) {
-      return new Response(JSON.stringify({ error: "Missing GOOGLE_PROJECT_ID" }), { status: 500 });
+    if (!projectId || !saJson) {
+      return res.status(400).json({ error: "Missing credentials" });
     }
 
-    if (!credentialsJSON) {
-      return new Response(JSON.stringify({ error: "Missing GOOGLE_APPLICATION_CREDENTIALS_JSON" }), { status: 500 });
-    }
+    const credentials = JSON.parse(saJson);
 
-    const credentials = JSON.parse(credentialsJSON);
-
+    // ✅ Auth
     const auth = new GoogleAuth({
       credentials,
       scopes: ["https://www.googleapis.com/auth/cloud-platform"],
@@ -29,9 +28,10 @@ export default async function handler(req, res) {
 
     const client = await auth.getClient();
 
-    const endpoint = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/imagen-3.0:predict`;
+    // ✅ Correct Imagen model
+    const endpoint = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/imagen-3.0-generate:predict`;
 
-    const requestBody = {
+    const request = {
       instances: [
         {
           prompt,
@@ -39,28 +39,33 @@ export default async function handler(req, res) {
       ],
     };
 
-    const result = await client.request({
+    const response = await client.request({
       url: endpoint,
       method: "POST",
-      data: requestBody,
+      data: request,
     });
 
-    const base64 = result.data?.predictions?.[0]?.bytesBase64;
+    const preds = response?.data?.predictions;
 
-    if (!base64) {
-      return new Response(JSON.stringify({ error: "No image returned" }), { status: 500 });
+    if (!preds || !preds.length) {
+      return res.status(500).json({ error: "No image returned" });
     }
 
-    return new Response(
-      JSON.stringify({ image: base64 }),
-      {
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message || "Unknown error" }),
-      { status: 500 }
-    );
+    // Return 1st base64 image
+    const image = preds?.[0]?.bytesBase64 || null;
+
+    if (!image) {
+      return res.status(500).json({ error: "No base64 image found" });
+    }
+
+    return res.json({ image });
+
+  } catch (err) {
+    console.error("ERROR:", err);
+    return res.status(500).json({ error: err.message });
   }
 }
+
+export const config = {
+  path: "/imagen",
+};
