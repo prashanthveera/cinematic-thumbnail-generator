@@ -165,7 +165,12 @@ async function generateOne(id, prompt) {
 
     const data = await res.json();
 
-    if (!data?.images?.length) throw new Error("No image returned");
+console.log("IMAGE API RESPONSE:", data);   // ✅ LOG FULL RESPONSE
+
+if (!data?.images?.length) {
+  throw new Error(JSON.stringify(data));
+}
+
 
     const b64 = data.images[0];
     const url = `data:image/png;base64,${b64}`;
@@ -198,4 +203,5 @@ function downloadImage(id) {
 
 </body>
 </html>
+
 
