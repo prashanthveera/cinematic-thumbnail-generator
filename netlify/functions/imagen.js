@@ -6,13 +6,13 @@ export async function handler(event) {
     }
 
     const { prompt } = JSON.parse(event.body || "{}");
-    if (!prompt || typeof prompt !== "string") {
+    if (!prompt) {
       return { statusCode: 400, body: "Missing prompt" };
     }
 
     const API_KEY = process.env.GOOGLE_API_KEY;
     if (!API_KEY) {
-      return { statusCode: 500, body: "Server missing GOOGLE_API_KEY" };
+      return { statusCode: 500, body: "Missing GOOGLE_API_KEY" };
     }
 
     const url =
@@ -26,16 +26,15 @@ export async function handler(event) {
         },
       ],
       generationConfig: {
-        numberOfImages: 4,
+        numberOfImages: 1,
         aspectRatio: "16:9",
       },
     };
 
-    const resp = await fetch(url, {
+    const resp = await fetch(url + `?key=${API_KEY}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-goog-api-key": API_KEY,
       },
       body: JSON.stringify(payload),
     });
@@ -45,26 +44,20 @@ export async function handler(event) {
     if (!resp.ok) {
       return {
         statusCode: resp.status,
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       };
     }
 
     const images =
       (data.generatedImages || [])
-        .map((img) => img?.image?.imageBytes)
+        .map((x) => x?.image?.imageBytes)
         .filter(Boolean);
 
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ images }),
     };
   } catch (e) {
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: e.message }),
-    };
+    return { statusCode: 500, body: e.toString() };
   }
 }
