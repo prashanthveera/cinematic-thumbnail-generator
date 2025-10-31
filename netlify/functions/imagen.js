@@ -1,6 +1,7 @@
+// netlify/functions/imagen.js
 const { GoogleAuth } = require("google-auth-library");
 
-exports.handler = async (event, context) => {
+exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
       return { statusCode: 405, body: "Method Not Allowed" };
@@ -32,7 +33,11 @@ exports.handler = async (event, context) => {
 
     const client = await auth.getClient();
 
-    const endpoint = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/imagen-3.0-generate:predict`;
+    // ✅ CORRECT MODEL
+    const modelName =
+      `projects/${projectId}/locations/us-central1/publishers/google/models/imagen-4.0-fast-generate-001`;
+
+    const endpoint = `https://us-central1-aiplatform.googleapis.com/v1/${modelName}:predict`;
 
     const payload = {
       instances: [{ prompt }],
@@ -44,16 +49,16 @@ exports.handler = async (event, context) => {
       data: payload,
     });
 
-    const preds = apiResp?.data?.predictions;
+    const preds = apiResp?.data?.predictions || [];
 
-    if (!preds?.length) {
+    if (!preds.length) {
       return {
         statusCode: 500,
         body: JSON.stringify({ error: "No images returned" }),
       };
     }
 
-    const base64 = preds[0]?.bytesBase64 || null;
+    const base64 = preds[0]?.bytesBase64;
 
     if (!base64) {
       return {
@@ -68,10 +73,13 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({ image: base64 }),
     };
   } catch (err) {
-    console.error("SERVER ERROR →", err.message);
+    console.error("SERVER ERROR →", err.message, err.response?.data);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
+      body: JSON.stringify({
+        error: err.message,
+        details: err.response?.data,
+      }),
     };
   }
 };
